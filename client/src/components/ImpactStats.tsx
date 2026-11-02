@@ -6,33 +6,35 @@ import { ImpactStat } from '../types';
 export const ImpactStats: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
-
-  // Default target stats (combines live telemetry with fallback data)
-  // TODO: replace with API data
-  const targetStats: ImpactStat[] = [
-    { label: 'Requests posted', value: 348 },
-    { label: 'People helped', value: 312 },
-    { label: 'Resolved requests', value: 295 },
-    { label: 'Active volunteers', value: 146 },
-  ];
-
-  const [stats, setStats] = useState<ImpactStat[]>(targetStats.map((s) => ({ ...s, value: 0 })));
+  const [realStats, setRealStats] = useState<ImpactStat[]>([
+    { label: 'Requests posted', value: 0 },
+    { label: 'Active needs', value: 0 },
+    { label: 'Resolved requests', value: 0 },
+    { label: 'Active volunteers', value: 0 },
+  ]);
+  const [displayStats, setDisplayStats] = useState<ImpactStat[]>([
+    { label: 'Requests posted', value: 0 },
+    { label: 'Active needs', value: 0 },
+    { label: 'Resolved requests', value: 0 },
+    { label: 'Active volunteers', value: 0 },
+  ]);
 
   useEffect(() => {
-    // Optionally fetch live telemetry
+    // Fetch real metrics from the database
     api
       .getImpactStats()
       .then((data) => {
-        if (data && data.totalRequests) {
-          // Augment with real baseline for community scale display
-          targetStats[0].value = Math.max(data.totalRequests, 348);
-          targetStats[2].value = Math.max(data.resolvedRequests, 295);
-          targetStats[3].value = Math.max(data.activeHelpers, 146);
-          targetStats[1].value = Math.max(data.resolvedRequests + data.activeHelpers, 312);
-        }
+        const loaded: ImpactStat[] = [
+          { label: 'Requests posted', value: data.totalRequests || 0 },
+          { label: 'Active needs', value: data.activeRequests || 0 },
+          { label: 'Resolved requests', value: data.resolvedRequests || 0 },
+          { label: 'Active volunteers', value: data.activeHelpers || 0 },
+        ];
+        setRealStats(loaded);
+        setDisplayStats(loaded);
       })
-      .catch(() => {
-        // Use default fallback numbers
+      .catch((err) => {
+        console.warn('Could not fetch impact metrics:', err);
       });
   }, []);
 
@@ -42,26 +44,26 @@ export const ImpactStats: React.FC = () => {
       (entries) => {
         if (entries[0].isIntersecting && !hasAnimated) {
           setHasAnimated(true);
-          const duration = 1600; // 1.6s
-          const steps = 40;
+          const duration = 1200;
+          const steps = 30;
           const stepTime = duration / steps;
           let currentStep = 0;
 
           const timer = setInterval(() => {
             currentStep++;
             const progress = currentStep / steps;
-            const easeOutProgress = 1 - Math.pow(1 - progress, 3); // Ease-out cubic
+            const easeOut = 1 - Math.pow(1 - progress, 3);
 
-            setStats(
-              targetStats.map((stat) => ({
+            setDisplayStats(
+              realStats.map((stat) => ({
                 ...stat,
-                value: Math.floor(stat.value * easeOutProgress),
+                value: Math.floor(stat.value * easeOut),
               }))
             );
 
             if (currentStep >= steps) {
               clearInterval(timer);
-              setStats(targetStats);
+              setDisplayStats(realStats);
             }
           }, stepTime);
         }
@@ -74,13 +76,13 @@ export const ImpactStats: React.FC = () => {
     }
 
     return () => observer.disconnect();
-  }, [hasAnimated]);
+  }, [hasAnimated, realStats]);
 
   const icons = [
     <FileText key="1" className="w-5 h-5 text-teal-700" aria-hidden="true" />,
-    <Users key="2" className="w-5 h-5 text-amber-600" aria-hidden="true" />,
+    <HeartHandshake key="2" className="w-5 h-5 text-amber-600" aria-hidden="true" />,
     <CheckCircle2 key="3" className="w-5 h-5 text-emerald-600" aria-hidden="true" />,
-    <HeartHandshake key="4" className="w-5 h-5 text-coral-600" aria-hidden="true" />,
+    <Users key="4" className="w-5 h-5 text-coral-600" aria-hidden="true" />,
   ];
 
   return (
@@ -91,7 +93,7 @@ export const ImpactStats: React.FC = () => {
     >
       <div className="bg-white rounded-2xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-stone-100">
-          {stats.map((stat, idx) => (
+          {displayStats.map((stat, idx) => (
             <div
               key={stat.label}
               className={`flex flex-col items-center sm:items-start text-center sm:text-left ${
@@ -103,7 +105,6 @@ export const ImpactStats: React.FC = () => {
               </div>
               <div className="text-3xl sm:text-4xl font-extrabold text-[#14201F] tracking-tight tabular-nums">
                 {stat.value.toLocaleString()}
-                <span className="text-teal-700 font-bold ml-0.5">+</span>
               </div>
               <p className="text-xs sm:text-sm font-semibold text-stone-500 mt-1">{stat.label}</p>
             </div>

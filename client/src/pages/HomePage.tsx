@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { AssistanceRequest, Category, HelpRequest, HelpRequestCategory } from '../types';
+import { AssistanceRequest, HelpRequestCategory } from '../types';
 import { RequestCard } from '../components/RequestCard';
 import { ImpactStats } from '../components/ImpactStats';
 import { HowItWorks } from '../components/HowItWorks';
@@ -11,46 +11,15 @@ import { CTABanner } from '../components/CTABanner';
 import {
   Search,
   Sparkles,
-  ArrowRight,
   BookOpen,
   Utensils,
   Car,
   GraduationCap,
   Wrench,
   Heart,
-  CheckCircle2,
+  PlusCircle,
+  Inbox,
 } from 'lucide-react';
-
-// TODO: replace with API data
-const fallbackHeroLiveRequests: HelpRequest[] = [
-  {
-    id: 'req-1',
-    title: 'Need Data Structures & Algorithms Textbook (CLRS 3rd Ed)',
-    category: 'Textbooks',
-    location: 'Campus Library, North Hall',
-    postedAt: '15m ago',
-    status: 'open',
-    urgent: false,
-  },
-  {
-    id: 'req-2',
-    title: 'Urgent: Ride to Central Hospital for Medical Consultation',
-    category: 'Rides',
-    location: 'Elmwood Apts to Clinic',
-    postedAt: '42m ago',
-    status: 'open',
-    urgent: true,
-  },
-  {
-    id: 'req-3',
-    title: 'Emergency Food Pantry staples for family of 4',
-    category: 'Food',
-    location: 'Oakridge Community Center',
-    postedAt: '2h ago',
-    status: 'in_progress',
-    urgent: true,
-  },
-];
 
 interface QuickCategoryChip {
   name: string;
@@ -79,7 +48,7 @@ export const HomePage: React.FC = () => {
       .then((reqs) => {
         setActiveRequests(reqs);
       })
-      .catch((err) => console.error('Error fetching requests for homepage:', err))
+      .catch((err) => console.error('Error fetching real requests:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -99,28 +68,6 @@ export const HomePage: React.FC = () => {
   const handleOfferHelp = (requestId: string) => {
     navigate(`/requests/${requestId}`);
   };
-
-  // Convert live requests to HelpRequest format for Hero display or fallback
-  const heroDisplayRequests: HelpRequest[] =
-    activeRequests.length >= 3
-      ? activeRequests.slice(0, 3).map((r) => ({
-          id: r.id,
-          title: r.title,
-          category: (r.category?.slug === 'academic'
-            ? 'Textbooks'
-            : r.category?.slug === 'food'
-            ? 'Food'
-            : r.category?.slug === 'transport'
-            ? 'Rides'
-            : r.category?.slug === 'tech'
-            ? 'Repairs'
-            : 'Other') as HelpRequestCategory,
-          location: r.location,
-          postedAt: r.created_at,
-          status: r.status as 'open' | 'in_progress' | 'resolved',
-          urgent: r.urgency === 'critical' || r.urgency === 'high',
-        }))
-      : fallbackHeroLiveRequests;
 
   return (
     <div className="space-y-4 sm:space-y-8 pb-16">
@@ -191,9 +138,8 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Column: Stack of 2-3 Live RequestCards with Floating Animation */}
+            {/* Right Column: Real Community Requests Stack */}
             <div className="lg:col-span-5 relative mt-4 lg:mt-0">
-              {/* Subtle background glow */}
               <div
                 className="absolute inset-0 bg-teal-100/50 rounded-3xl blur-2xl -z-10 pointer-events-none"
                 aria-hidden="true"
@@ -210,34 +156,59 @@ export const HomePage: React.FC = () => {
                   <span className="text-xs text-stone-400 font-medium">Real-time needs</span>
                 </div>
 
-                {/* Staggered Floating Cards */}
-                <div className="relative space-y-3.5">
-                  {heroDisplayRequests.slice(0, 3).map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className={`transition-all ${
-                        idx === 0
-                          ? 'animate-float'
-                          : idx === 1
-                          ? 'animate-floatDelayed sm:ml-4'
-                          : 'sm:ml-8'
-                      }`}
-                    >
-                      <RequestCard
-                        request={item}
-                        showOfferButton={true}
-                        onOfferHelp={handleOfferHelp}
-                        isCompact={true}
-                        className="border-stone-200/90 shadow-sm hover:shadow-md"
-                      />
+                {/* Staggered Floating Cards or Empty State */}
+                {loading ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-32 bg-white rounded-2xl border border-stone-200 animate-pulse" />
+                    ))}
+                  </div>
+                ) : activeRequests.length > 0 ? (
+                  <div className="relative space-y-3.5">
+                    {activeRequests.slice(0, 3).map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className={`transition-all ${
+                          idx === 0
+                            ? 'animate-float'
+                            : idx === 1
+                            ? 'animate-floatDelayed sm:ml-4'
+                            : 'sm:ml-8'
+                        }`}
+                      >
+                        <RequestCard
+                          request={item}
+                          showOfferButton={true}
+                          onOfferHelp={handleOfferHelp}
+                          isCompact={true}
+                          className="border-stone-200/90 shadow-sm hover:shadow-md"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-dashed border-stone-300 p-8 text-center space-y-3 shadow-xs">
+                    <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+                      <Inbox className="w-6 h-6" aria-hidden="true" />
                     </div>
-                  ))}
-                </div>
+                    <h3 className="font-bold text-stone-800 text-base">Be the first to post a request</h3>
+                    <p className="text-xs text-stone-500 max-w-xs mx-auto">
+                      There are no active requests posted yet. Post your need or share what you can offer to start the circle.
+                    </p>
+                    <Link
+                      to="/create"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                    >
+                      <PlusCircle className="w-4 h-4" aria-hidden="true" />
+                      <span>Post a request</span>
+                    </Link>
+                  </div>
+                )}
 
                 <div className="pt-2 text-center">
                   <p className="text-xs text-stone-500 flex items-center justify-center gap-1.5">
                     <Heart className="w-3.5 h-3.5 text-coral-600 fill-coral-600" aria-hidden="true" />
-                    <span>Average community response time is under 2 hours.</span>
+                    <span>Empowering neighbors through direct mutual aid.</span>
                   </p>
                 </div>
               </div>
@@ -253,7 +224,7 @@ export const HomePage: React.FC = () => {
       <HowItWorks />
 
       {/* 5. UrgentNeeds Grid (Time-Sensitive Needs) */}
-      <UrgentNeeds requests={activeRequests.length > 0 ? activeRequests : fallbackHeroLiveRequests} loading={loading} />
+      <UrgentNeeds requests={activeRequests} loading={loading} />
 
       {/* 6. WhoItsFor Section (4 Tiles) */}
       <WhoItsFor />

@@ -1,7 +1,7 @@
-// API Automated Integration Test Suite
+// API Automated Integration Test Suite with Real Database Verification
 const http = require('http');
 
-const PORT = 5001; // test port
+const PORT = 5002; // test port
 process.env.PORT = String(PORT);
 process.env.NODE_ENV = 'test';
 
@@ -59,79 +59,91 @@ const server = app.listen(PORT, async () => {
   }
 
   try {
-    console.log('\n--- 1. Testing Health & Public Endpoints ---');
+    console.log('\n--- 1. Testing Health & Categories Endpoints ---');
     const health = await request('GET', '/api/health');
     assert(health.status === 200 && health.body.status === 'healthy', 'GET /api/health returns healthy');
 
     const categories = await request('GET', '/api/categories');
-    assert(categories.status === 200 && Array.isArray(categories.body) && categories.body.length > 0, 'GET /api/categories returns category array');
+    assert(categories.status === 200 && Array.isArray(categories.body) && categories.body.length === 7, 'GET /api/categories returns 7 real categories');
 
-    const impact = await request('GET', '/api/dashboard/impact');
-    assert(impact.status === 200 && typeof impact.body.totalRequests === 'number', 'GET /api/dashboard/impact returns metrics');
+    console.log('\n--- 2. Testing Real User Registration & Login ---');
+    const testEmail = `user_${Date.now()}@example.org`;
+    const regRes = await request('POST', '/api/auth/register', {
+      email: testEmail,
+      password: 'password123',
+      full_name: 'Alex Rivera',
+      role: 'user',
+      location: 'Campus North Hall',
+      phone: '+1 555-0199',
+    });
+    assert(regRes.status === 201 && Boolean(regRes.body.token), 'POST /api/auth/register registers real user');
+    const userToken = regRes.body.token;
 
-    const requests = await request('GET', '/api/requests');
-    assert(requests.status === 200 && Array.isArray(requests.body) && requests.body.length > 0, 'GET /api/requests returns seed requests');
-
-    console.log('\n--- 2. Testing Authentication ---');
-    const loginSarah = await request('POST', '/api/auth/login', {
-      email: 'sarah.c@community.org',
+    const loginRes = await request('POST', '/api/auth/login', {
+      email: testEmail,
       password: 'password123',
     });
-    assert(loginSarah.status === 200 && Boolean(loginSarah.body.token), 'POST /api/auth/login logs in Sarah Chen');
-    const sarahToken = loginSarah.body.token;
+    assert(loginRes.status === 200 && loginRes.body.user.email === testEmail, 'POST /api/auth/login authenticates real user');
 
-    const sarahProfile = await request('GET', '/api/auth/profile', null, sarahToken);
-    assert(sarahProfile.status === 200 && sarahProfile.body.email === 'sarah.c@community.org', 'GET /api/auth/profile retrieves authenticated user');
+    const profileRes = await request('GET', '/api/auth/profile', null, userToken);
+    assert(profileRes.status === 200 && profileRes.body.full_name === 'Alex Rivera', 'GET /api/auth/profile retrieves real registered profile');
 
-    console.log('\n--- 3. Testing Assistance Request Lifecycle ---');
+    console.log('\n--- 3. Testing Real Assistance Request Lifecycle ---');
     const newReq = await request(
       'POST',
       '/api/requests',
       {
-        title: 'Need graphing calculator for Calculus II final exam',
-        description: 'TI-84 or similar calculator needed for next Tuesday exam.',
+        title: 'Need organic chemistry lab notebook and model kit',
+        description: 'Enrolled in Chem 201. Need model kit for molecular geometry assignments this semester.',
         category_id: categories.body[0].id,
-        urgency: 'high',
-        location: 'Science Complex Room 310',
-        contact_info: 'sarah.c@community.org',
+        urgency: 'medium',
+        location: 'Science Building Room 410',
+        contact_info: testEmail,
       },
-      sarahToken
+      userToken
     );
-    assert(newReq.status === 201 && Boolean(newReq.body.request.id), 'POST /api/requests creates new request');
+    assert(newReq.status === 201 && Boolean(newReq.body.request.id), 'POST /api/requests persists real request');
     const createdRequestId = newReq.body.request.id;
 
-    console.log('\n--- 4. Testing Volunteer Assistance Offers ---');
-    const loginMarcus = await request('POST', '/api/auth/login', {
-      email: 'marcus.j@volunteer.net',
+    console.log('\n--- 4. Testing Real Volunteer Helper Registration & Assistance Offer ---');
+    const volunteerEmail = `volunteer_${Date.now()}@example.org`;
+    const regVol = await request('POST', '/api/auth/register', {
+      email: volunteerEmail,
       password: 'password123',
+      full_name: 'Jordan Taylor',
+      role: 'volunteer',
+      location: 'Downtown District',
     });
-    const marcusToken = loginMarcus.body.token;
+    const volunteerToken = regVol.body.token;
 
     const offer = await request(
       'POST',
       `/api/responses/request/${createdRequestId}`,
       {
-        message: 'I have a TI-84 Plus in my locker you can borrow for the week!',
-        contact_phone: '+1 (555) 987-6543',
+        message: 'I took Chem 201 last term and still have the complete molecular model kit! Happy to loan it to you.',
+        contact_phone: '+1 555-0245',
       },
-      marcusToken
+      volunteerToken
     );
-    assert(offer.status === 201 && Boolean(offer.body.response.id), 'POST /api/responses/request/:id submits offer');
+    assert(offer.status === 201 && Boolean(offer.body.response.id), 'POST /api/responses/request/:id submits real assistance offer');
 
     const fetchedReq = await request('GET', `/api/requests/${createdRequestId}`);
     assert(
       fetchedReq.status === 200 &&
         Array.isArray(fetchedReq.body.responses) &&
         fetchedReq.body.responses.length === 1,
-      'GET /api/requests/:id includes submitted responses'
+      'GET /api/requests/:id includes real persisted responses'
     );
 
-    console.log('\n--- 5. Testing Dashboard Stats ---');
-    const dashboard = await request('GET', '/api/dashboard/user', null, sarahToken);
-    assert(dashboard.status === 200 && dashboard.body.myRequests.length > 0, 'GET /api/dashboard/user returns user dashboard data');
+    console.log('\n--- 5. Testing Real Metrics & Dashboard Telemetry ---');
+    const impact = await request('GET', '/api/dashboard/impact');
+    assert(impact.status === 200 && impact.body.totalRequests >= 1, 'GET /api/dashboard/impact reflects real persistent counts');
+
+    const dashboard = await request('GET', '/api/dashboard/user', null, userToken);
+    assert(dashboard.status === 200 && dashboard.body.myRequests.length === 1, 'GET /api/dashboard/user returns real user activity');
 
     console.log(`\n========================================`);
-    console.log(`TEST SUMMARY: ${passed} Passed, ${failed} Failed`);
+    console.log(`REAL IMPLEMENTATION TEST SUMMARY: ${passed} Passed, ${failed} Failed`);
     console.log(`========================================\n`);
 
     server.close(() => {

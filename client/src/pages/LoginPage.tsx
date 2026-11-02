@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HandHeart, Lock, Mail, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { HandHeart, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,12 +32,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('password123');
-    setError(null);
-  };
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full bg-white rounded-2xl border border-stone-200/90 p-8 shadow-xs space-y-6">
@@ -56,32 +50,6 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* 1-Click Demo Accounts */}
-        <div className="bg-teal-50/70 border border-teal-200/70 rounded-xl p-3.5 space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-teal-900">
-            <Sparkles className="w-3.5 h-3.5 text-teal-700" aria-hidden="true" />
-            <span>1-Click Test Sign-In</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('sarah.c@community.org')}
-              className="p-2.5 bg-white rounded-lg border border-teal-200 hover:border-teal-400 text-stone-700 text-left transition-all hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-teal-700"
-            >
-              <p className="font-bold text-[#14201F]">Sarah Chen</p>
-              <p className="text-[10px] text-stone-500 font-medium">Student Requester</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('marcus.j@volunteer.net')}
-              className="p-2.5 bg-white rounded-lg border border-teal-200 hover:border-teal-400 text-stone-700 text-left transition-all hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-teal-700"
-            >
-              <p className="font-bold text-[#14201F]">Marcus Johnson</p>
-              <p className="text-[10px] text-stone-500 font-medium">Volunteer Helper</p>
-            </button>
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-stone-700 mb-1">Email Address</label>
@@ -92,7 +60,7 @@ export const LoginPage: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter your registered email"
                 className="w-full pl-9 pr-4 py-2.5 bg-[#FAFAF7] border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-700 focus:bg-white"
               />
             </div>
@@ -107,7 +75,7 @@ export const LoginPage: React.FC = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                placeholder="Enter your password"
                 className="w-full pl-9 pr-4 py-2.5 bg-[#FAFAF7] border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-700 focus:bg-white"
               />
             </div>

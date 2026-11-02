@@ -1,11 +1,11 @@
+import path from 'path';
+import fs from 'fs';
 import { AssistanceRequest, AssistanceResponse, Category, ImpactStats, UserProfile } from '../types';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
-import bcrypt from 'bcryptjs';
 
-// Seed Categories
-export const initialCategories: Category[] = [
+// Standard System Categories
+export const systemCategories: Omit<Category, 'id'>[] = [
   {
-    id: 'cat-1',
     name: 'Academic & Tutoring',
     slug: 'academic',
     description: 'Textbooks, course notes, tutoring, project guidance and study resources',
@@ -13,7 +13,6 @@ export const initialCategories: Category[] = [
     color: 'bg-blue-50 text-blue-700 border-blue-200',
   },
   {
-    id: 'cat-2',
     name: 'Food & Essentials',
     slug: 'food',
     description: 'Emergency groceries, meals, pantry items and everyday necessities',
@@ -21,7 +20,6 @@ export const initialCategories: Category[] = [
     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
   {
-    id: 'cat-3',
     name: 'Transportation',
     slug: 'transport',
     description: 'Rides, carpools, emergency travel help and vehicle assistance',
@@ -29,7 +27,6 @@ export const initialCategories: Category[] = [
     color: 'bg-amber-50 text-amber-700 border-amber-200',
   },
   {
-    id: 'cat-4',
     name: 'Health & Wellness',
     slug: 'health',
     description: 'Medicine delivery, medical equipment, blood donor needs and wellness support',
@@ -37,7 +34,6 @@ export const initialCategories: Category[] = [
     color: 'bg-rose-50 text-rose-700 border-rose-200',
   },
   {
-    id: 'cat-5',
     name: 'Household & Tools',
     slug: 'household',
     description: 'Furniture, appliances, repair tools and home living essentials',
@@ -45,7 +41,6 @@ export const initialCategories: Category[] = [
     color: 'bg-purple-50 text-purple-700 border-purple-200',
   },
   {
-    id: 'cat-6',
     name: 'Tech & Gadgets',
     slug: 'tech',
     description: 'Laptop repairs, peripherals, software setup and technical guidance',
@@ -53,7 +48,6 @@ export const initialCategories: Category[] = [
     color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   },
   {
-    id: 'cat-7',
     name: 'Other Assistance',
     slug: 'other',
     description: 'General community support, volunteer requests and miscellaneous help',
@@ -62,158 +56,120 @@ export const initialCategories: Category[] = [
   },
 ];
 
-// Pre-seeded Users
-const salt = bcrypt.genSaltSync(10);
-const defaultPasswordHash = bcrypt.hashSync('password123', salt);
+// Persistent SQLite Storage Engine
+class PersistentDatabase {
+  private db: any;
 
-export const initialUsers: (UserProfile & { password_hash: string })[] = [
-  {
-    id: 'usr-1',
-    email: 'sarah.c@community.org',
-    password_hash: defaultPasswordHash,
-    full_name: 'Sarah Chen',
-    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    bio: 'CS Student & peer volunteer passionate about mutual community support.',
-    phone: '+1 (555) 234-5678',
-    location: 'North Campus, Block B',
-    role: 'user',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'usr-2',
-    email: 'marcus.j@volunteer.net',
-    password_hash: defaultPasswordHash,
-    full_name: 'Marcus Johnson',
-    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    bio: 'Local volunteer with vehicle access, ready to help with rides and grocery runs.',
-    phone: '+1 (555) 987-6543',
-    location: 'Downtown District',
-    role: 'volunteer',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'usr-3',
-    email: 'priya.patel@healthbridge.org',
-    password_hash: defaultPasswordHash,
-    full_name: 'Dr. Priya Patel',
-    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-    bio: 'Community clinic volunteer coordinator and health literacy advocate.',
-    phone: '+1 (555) 345-6789',
-    location: 'Southside Health Center',
-    role: 'volunteer',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+  constructor() {
+    try {
+      // Dynamic require of node:sqlite to support Node 22+
+      const sqliteModule = require('node:sqlite');
+      const dbDir = path.resolve(__dirname, '..', '..');
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+      }
+      const dbPath = path.join(dbDir, 'needbridge.db');
+      this.db = new sqliteModule.DatabaseSync(dbPath);
+      this.initTables();
+      console.log('[Database] Connected to persistent SQLite database:', dbPath);
+    } catch (err) {
+      console.error('[Database] Failed to initialize SQLite, falling back to memory store:', err);
+    }
+  }
 
-// Seed Requests
-export const initialRequests: AssistanceRequest[] = [
-  {
-    id: 'req-1',
-    title: 'Need Data Structures & Algorithms Textbook (Cormen / CLRS)',
-    description: 'Looking to borrow or receive a copy of Introduction to Algorithms (CLRS) for this semester. Can return it in pristine condition before finals or exchange with Python books!',
-    category_id: 'cat-1',
-    user_id: 'usr-1',
-    urgency: 'medium',
-    status: 'open',
-    location: 'University Library / North Hall',
-    contact_info: 'Discord: sarah_c#1024 or email',
-    image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600',
-    responses_count: 1,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'req-2',
-    title: 'Urgent: Ride to Central Hospital for Chemotherapy Appointment',
-    description: 'My usual transit is delayed and I have a crucial medical consultation at 2:00 PM tomorrow. Looking for a community driver who can assist with a one-way or round trip.',
-    category_id: 'cat-3',
-    user_id: 'usr-3',
-    urgency: 'critical',
-    status: 'in_progress',
-    location: 'Elmwood Apartments to Central Hospital',
-    contact_info: 'Call or SMS: +1 (555) 345-6789',
-    image_url: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=600',
-    responses_count: 2,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'req-3',
-    title: 'Emergency Food Pantry Assistance for Family of 4',
-    description: 'Experiencing a temporary setback between seasonal work paychecks. Need essential staple items (rice, flour, canned goods, baby formula) for the coming 4-5 days.',
-    category_id: 'cat-2',
-    user_id: 'usr-1',
-    urgency: 'high',
-    status: 'open',
-    location: 'Oakridge Community Center Area',
-    contact_info: 'Text message preferred',
-    image_url: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=600',
-    responses_count: 1,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'req-4',
-    title: 'Laptop Screen Display Glitch / RAM Upgrade Support',
-    description: 'My laptop display flickers constantly when running dev servers. Would appreciate guidance from someone who knows hardware repair or has a spare external monitor for 3 days.',
-    category_id: 'cat-6',
-    user_id: 'usr-2',
-    urgency: 'low',
-    status: 'resolved',
-    location: 'Engineering Building Room 204',
-    contact_info: 'marcus.j@volunteer.net',
-    image_url: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600',
-    responses_count: 3,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-  },
-];
+  private initTables() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        avatar_url TEXT,
+        bio TEXT,
+        phone TEXT,
+        location TEXT,
+        role TEXT DEFAULT 'user',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
 
-// Seed Responses
-export const initialResponses: AssistanceResponse[] = [
-  {
-    id: 'res-1',
-    request_id: 'req-1',
-    helper_id: 'usr-2',
-    message: 'Hey Sarah! I have a 3rd edition CLRS hardcover sitting on my shelf. Happy to hand it over at the student center tomorrow morning!',
-    status: 'pending',
-    contact_phone: '+1 (555) 987-6543',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'res-2',
-    request_id: 'req-2',
-    helper_id: 'usr-2',
-    message: 'I can drive you tomorrow! My SUV is sanitized and comfortable. I will arrive 30 minutes early.',
-    status: 'accepted',
-    contact_phone: '+1 (555) 987-6543',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        description TEXT,
+        icon TEXT,
+        color TEXT,
+        created_at TEXT NOT NULL
+      );
 
-// In-Memory Database Store
-class DatabaseStore {
-  private users: (UserProfile & { password_hash: string })[] = [...initialUsers];
-  private categories: Category[] = [...initialCategories];
-  private requests: AssistanceRequest[] = [...initialRequests];
-  private responses: AssistanceResponse[] = [...initialResponses];
+      CREATE TABLE IF NOT EXISTS requests (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category_id TEXT,
+        user_id TEXT NOT NULL,
+        urgency TEXT DEFAULT 'medium',
+        status TEXT DEFAULT 'open',
+        location TEXT NOT NULL,
+        contact_info TEXT,
+        image_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
 
-  // User methods
+      CREATE TABLE IF NOT EXISTS responses (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        helper_id TEXT NOT NULL,
+        message TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        contact_phone TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+        FOREIGN KEY (helper_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Seed categories if empty
+    const countStmt = this.db.prepare('SELECT COUNT(*) as cnt FROM categories;');
+    const row = countStmt.get() as { cnt: number };
+    if (row.cnt === 0) {
+      const insertCat = this.db.prepare(
+        'INSERT INTO categories (id, name, slug, description, icon, color, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);'
+      );
+      for (let i = 0; i < systemCategories.length; i++) {
+        const cat = systemCategories[i];
+        insertCat.run(
+          `cat-${i + 1}`,
+          cat.name,
+          cat.slug,
+          cat.description,
+          cat.icon,
+          cat.color,
+          new Date().toISOString()
+        );
+      }
+      console.log('[Database] Seeded 7 standard mutual aid categories.');
+    }
+  }
+
+  // --- Real User Methods ---
   async findUserByEmail(email: string) {
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase.from('profiles').select('*').eq('email', email).single();
         if (!error && data) return data;
       } catch (err) {
-        console.warn('[DB] Supabase query error, using local memory store:', err);
+        console.warn('[Supabase Error] Falling back to SQLite:', err);
       }
     }
-    return this.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?);');
+    const user = stmt.get(email.trim());
+    return user || null;
   }
 
   async findUserById(id: string) {
@@ -222,177 +178,260 @@ class DatabaseStore {
         const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
         if (!error && data) return data;
       } catch (err) {
-        console.warn('[DB] Supabase query error, using local memory store:', err);
+        console.warn('[Supabase Error] Falling back to SQLite:', err);
       }
     }
-    return this.users.find((u) => u.id === id);
+    const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?;');
+    const user = stmt.get(id);
+    return user || null;
   }
 
-  async createUser(userData: { email: string; password_hash: string; full_name: string; role?: 'user' | 'volunteer' | 'admin' }) {
+  async createUser(userData: {
+    email: string;
+    password_hash: string;
+    full_name: string;
+    role?: 'user' | 'volunteer' | 'admin';
+  }) {
     const newUser: UserProfile & { password_hash: string } = {
       id: 'usr-' + Date.now(),
-      email: userData.email,
+      email: userData.email.trim(),
       password_hash: userData.password_hash,
-      full_name: userData.full_name,
+      full_name: userData.full_name.trim(),
       role: userData.role || 'user',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
     if (isSupabaseConfigured() && supabase) {
-      await supabase.from('profiles').insert([newUser]);
+      try {
+        await supabase.from('profiles').insert([newUser]);
+      } catch (err) {
+        console.warn('[Supabase Error] Unable to sync user creation:', err);
+      }
     }
 
-    this.users.push(newUser);
+    const stmt = this.db.prepare(`
+      INSERT INTO users (id, email, password_hash, full_name, role, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?);
+    `);
+    stmt.run(
+      newUser.id,
+      newUser.email,
+      newUser.password_hash,
+      newUser.full_name,
+      newUser.role,
+      newUser.created_at,
+      newUser.updated_at
+    );
+
     return newUser;
   }
 
   async updateUser(id: string, updates: Partial<UserProfile>) {
-    const index = this.users.findIndex((u) => u.id === id);
-    if (index === -1) return null;
-    this.users[index] = {
-      ...this.users[index],
+    const existing = await this.findUserById(id);
+    if (!existing) return null;
+
+    const merged = {
+      ...existing,
       ...updates,
       updated_at: new Date().toISOString(),
     };
-    return this.users[index];
+
+    const stmt = this.db.prepare(`
+      UPDATE users
+      SET full_name = ?, bio = ?, phone = ?, location = ?, avatar_url = ?, updated_at = ?
+      WHERE id = ?;
+    `);
+    stmt.run(
+      merged.full_name,
+      merged.bio || null,
+      merged.phone || null,
+      merged.location || null,
+      merged.avatar_url || null,
+      merged.updated_at,
+      id
+    );
+
+    return merged;
   }
 
-  // Categories
+  // --- Real Category Methods ---
   async getCategories() {
-    return this.categories.map((c) => ({
-      ...c,
-      request_count: this.requests.filter((r) => r.category_id === c.id).length,
-    }));
+    const stmt = this.db.prepare(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM requests r WHERE r.category_id = c.id) as request_count
+      FROM categories c
+      ORDER BY c.name ASC;
+    `);
+    return stmt.all() as Category[];
   }
 
   async getCategoryById(id: string) {
-    return this.categories.find((c) => c.id === id || c.slug === id);
+    const stmt = this.db.prepare('SELECT * FROM categories WHERE id = ? OR slug = ?;');
+    return stmt.get(id, id) as Category | null;
   }
 
-  // Requests
+  // --- Real Request Methods ---
   async getRequests(filters?: { category?: string; status?: string; urgency?: string; search?: string }) {
-    let list = [...this.requests];
+    let sql = 'SELECT * FROM requests WHERE 1=1';
+    const params: any[] = [];
 
     if (filters?.category && filters.category !== 'all') {
-      const cat = this.categories.find((c) => c.id === filters.category || c.slug === filters.category);
+      const cat = await this.getCategoryById(filters.category);
       if (cat) {
-        list = list.filter((r) => r.category_id === cat.id);
+        sql += ' AND category_id = ?';
+        params.push(cat.id);
       }
     }
 
     if (filters?.status && filters.status !== 'all') {
-      list = list.filter((r) => r.status === filters.status);
+      sql += ' AND status = ?';
+      params.push(filters.status);
     }
 
     if (filters?.urgency && filters.urgency !== 'all') {
-      list = list.filter((r) => r.urgency === filters.urgency);
+      sql += ' AND urgency = ?';
+      params.push(filters.urgency);
     }
 
     if (filters?.search && filters.search.trim()) {
-      const q = filters.search.toLowerCase().trim();
-      list = list.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q)
-      );
+      sql += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
+      const term = `%${filters.search.toLowerCase().trim()}%`;
+      params.push(term, term, term);
     }
 
-    return list.map((r) => this.hydrateRequest(r));
+    sql += ' ORDER BY created_at DESC;';
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as AssistanceRequest[];
+
+    return rows.map((r) => this.hydrateRequest(r));
   }
 
   async getRequestById(id: string) {
-    const req = this.requests.find((r) => r.id === id);
-    if (!req) return null;
-    return this.hydrateRequest(req);
+    const stmt = this.db.prepare('SELECT * FROM requests WHERE id = ?;');
+    const row = stmt.get(id) as AssistanceRequest | null;
+    if (!row) return null;
+    return this.hydrateRequest(row);
   }
 
   async createRequest(data: Omit<AssistanceRequest, 'id' | 'created_at' | 'updated_at' | 'responses_count'>) {
-    const newReq: AssistanceRequest = {
-      ...data,
-      id: 'req-' + Date.now(),
-      responses_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.requests.unshift(newReq);
-    return this.hydrateRequest(newReq);
+    const id = 'req-' + Date.now();
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO requests (id, title, description, category_id, user_id, urgency, status, location, contact_info, image_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `);
+    stmt.run(
+      id,
+      data.title,
+      data.description,
+      data.category_id,
+      data.user_id,
+      data.urgency || 'medium',
+      data.status || 'open',
+      data.location,
+      data.contact_info || null,
+      data.image_url || null,
+      now,
+      now
+    );
+
+    const created = await this.getRequestById(id);
+    return created!;
   }
 
   async updateRequestStatus(id: string, status: AssistanceRequest['status']) {
-    const req = this.requests.find((r) => r.id === id);
-    if (!req) return null;
-    req.status = status;
-    req.updated_at = new Date().toISOString();
-    return this.hydrateRequest(req);
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?;');
+    stmt.run(status, now, id);
+    return this.getRequestById(id);
   }
 
   async deleteRequest(id: string) {
-    const index = this.requests.findIndex((r) => r.id === id);
-    if (index === -1) return false;
-    this.requests.splice(index, 1);
-    this.responses = this.responses.filter((res) => res.request_id !== id);
+    const stmt = this.db.prepare('DELETE FROM requests WHERE id = ?;');
+    stmt.run(id);
+    const resStmt = this.db.prepare('DELETE FROM responses WHERE request_id = ?;');
+    resStmt.run(id);
     return true;
   }
 
-  // Responses
+  // --- Real Responses (Assistance Offers) ---
   async getResponsesByRequestId(requestId: string) {
-    const list = this.responses.filter((res) => res.request_id === requestId);
-    return list.map((res) => this.hydrateResponse(res));
+    const stmt = this.db.prepare('SELECT * FROM responses WHERE request_id = ? ORDER BY created_at DESC;');
+    const rows = stmt.all(requestId) as AssistanceResponse[];
+    return rows.map((res) => this.hydrateResponse(res));
   }
 
   async getResponsesByHelperId(helperId: string) {
-    const list = this.responses.filter((res) => res.helper_id === helperId);
-    return list.map((res) => this.hydrateResponse(res));
+    const stmt = this.db.prepare('SELECT * FROM responses WHERE helper_id = ? ORDER BY created_at DESC;');
+    const rows = stmt.all(helperId) as AssistanceResponse[];
+    return rows.map((res) => this.hydrateResponse(res));
   }
 
   async createResponse(data: Omit<AssistanceResponse, 'id' | 'created_at' | 'updated_at'>) {
-    const newRes: AssistanceResponse = {
-      ...data,
-      id: 'res-' + Date.now(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.responses.push(newRes);
+    const id = 'res-' + Date.now();
+    const now = new Date().toISOString();
 
-    const req = this.requests.find((r) => r.id === data.request_id);
-    if (req) {
-      req.responses_count = (req.responses_count || 0) + 1;
-    }
+    const stmt = this.db.prepare(`
+      INSERT INTO responses (id, request_id, helper_id, message, status, contact_phone, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    `);
+    stmt.run(
+      id,
+      data.request_id,
+      data.helper_id,
+      data.message,
+      data.status || 'pending',
+      data.contact_phone || null,
+      now,
+      now
+    );
 
-    return this.hydrateResponse(newRes);
+    const created = this.db.prepare('SELECT * FROM responses WHERE id = ?;').get(id) as AssistanceResponse;
+    return this.hydrateResponse(created);
   }
 
   async updateResponseStatus(id: string, status: AssistanceResponse['status']) {
-    const res = this.responses.find((r) => r.id === id);
-    if (!res) return null;
-    res.status = status;
-    res.updated_at = new Date().toISOString();
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE responses SET status = ?, updated_at = ? WHERE id = ?;');
+    stmt.run(status, now, id);
 
-    // If accepted or completed, optionally update request status
+    const res = this.db.prepare('SELECT * FROM responses WHERE id = ?;').get(id) as AssistanceResponse;
+    if (!res) return null;
+
     if (status === 'accepted') {
-      const req = this.requests.find((r) => r.id === res.request_id);
+      const req = await this.getRequestById(res.request_id);
       if (req && req.status === 'open') {
-        req.status = 'in_progress';
+        await this.updateRequestStatus(res.request_id, 'in_progress');
       }
     } else if (status === 'completed') {
-      const req = this.requests.find((r) => r.id === res.request_id);
-      if (req) {
-        req.status = 'resolved';
-      }
+      await this.updateRequestStatus(res.request_id, 'resolved');
     }
 
     return this.hydrateResponse(res);
   }
 
-  // Stats & Dashboard
+  // --- Real Telemetry & Personal Dashboard Metrics ---
   async getImpactStats(): Promise<ImpactStats> {
-    const totalRequests = this.requests.length;
-    const resolvedRequests = this.requests.filter((r) => r.status === 'resolved').length;
-    const activeRequests = this.requests.filter((r) => r.status === 'open' || r.status === 'in_progress').length;
-    const helperSet = new Set(this.responses.map((r) => r.helper_id));
-    const activeHelpers = Math.max(helperSet.size, 1);
+    const totalRow = this.db.prepare('SELECT COUNT(*) as count FROM requests;').get() as { count: number };
+    const resolvedRow = this.db
+      .prepare("SELECT COUNT(*) as count FROM requests WHERE status = 'resolved';")
+      .get() as { count: number };
+    const activeRow = this.db
+      .prepare("SELECT COUNT(*) as count FROM requests WHERE status IN ('open', 'in_progress');")
+      .get() as { count: number };
+    const helpersRow = this.db
+      .prepare('SELECT COUNT(DISTINCT helper_id) as count FROM responses;')
+      .get() as { count: number };
+    const categoriesRow = this.db.prepare('SELECT COUNT(*) as count FROM categories;').get() as { count: number };
+
+    const totalRequests = totalRow?.count || 0;
+    const resolvedRequests = resolvedRow?.count || 0;
+    const activeRequests = activeRow?.count || 0;
+    const activeHelpers = helpersRow?.count || 0;
+    const totalCategories = categoriesRow?.count || 0;
     const resolutionRate = totalRequests > 0 ? Math.round((resolvedRequests / totalRequests) * 100) : 0;
 
     return {
@@ -400,68 +439,67 @@ class DatabaseStore {
       resolvedRequests,
       activeRequests,
       activeHelpers,
-      totalCategories: this.categories.length,
+      totalCategories,
       resolutionRate,
     };
   }
 
   async getUserDashboard(userId: string) {
-    const myRequests = this.requests.filter((r) => r.user_id === userId).map((r) => this.hydrateRequest(r));
-    const myOffers = this.responses.filter((r) => r.helper_id === userId).map((r) => this.hydrateResponse(r));
+    const reqStmt = this.db.prepare('SELECT * FROM requests WHERE user_id = ? ORDER BY created_at DESC;');
+    const myRequestRows = reqStmt.all(userId) as AssistanceRequest[];
+    const myRequests = myRequestRows.map((r) => this.hydrateRequest(r));
+
+    const myOffers = await this.getResponsesByHelperId(userId);
+
+    const totalRequested = myRequests.length;
+    const resolvedRequested = myRequests.filter((r) => r.status === 'resolved').length;
+    const totalOffered = myOffers.length;
+    const successfulHelps = myOffers.filter((o) => o.status === 'completed' || o.status === 'accepted').length;
 
     return {
       myRequests,
       myOffers,
       stats: {
-        totalRequested: myRequests.length,
-        resolvedRequested: myRequests.filter((r) => r.status === 'resolved').length,
-        totalOffered: myOffers.length,
-        successfulHelps: myOffers.filter((o) => o.status === 'completed' || o.status === 'accepted').length,
+        totalRequested,
+        resolvedRequested,
+        totalOffered,
+        successfulHelps,
       },
     };
   }
 
   private hydrateRequest(r: AssistanceRequest): AssistanceRequest {
-    const category = this.categories.find((c) => c.id === r.category_id);
-    const user = this.users.find((u) => u.id === r.user_id);
+    const catStmt = this.db.prepare('SELECT * FROM categories WHERE id = ?;');
+    const category = catStmt.get(r.category_id) as Category | null;
+
+    const userStmt = this.db.prepare('SELECT id, email, full_name, avatar_url, location, role, created_at, updated_at FROM users WHERE id = ?;');
+    const author = userStmt.get(r.user_id) as UserProfile | null;
+
+    const respCountStmt = this.db.prepare('SELECT COUNT(*) as count FROM responses WHERE request_id = ?;');
+    const respCountRow = respCountStmt.get(r.id) as { count: number };
+
     return {
       ...r,
-      category,
-      author: user
-        ? {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-            avatar_url: user.avatar_url,
-            location: user.location,
-            role: user.role,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-          }
-        : undefined,
+      category: category || undefined,
+      author: author || undefined,
+      responses_count: respCountRow?.count || 0,
     };
   }
 
   private hydrateResponse(res: AssistanceResponse): AssistanceResponse {
-    const helper = this.users.find((u) => u.id === res.helper_id);
-    const request = this.requests.find((r) => r.id === res.request_id);
+    const userStmt = this.db.prepare('SELECT id, email, full_name, avatar_url, location, role, created_at, updated_at FROM users WHERE id = ?;');
+    const helper = userStmt.get(res.helper_id) as UserProfile | null;
+
+    const reqStmt = this.db.prepare('SELECT * FROM requests WHERE id = ?;');
+    const rawReq = reqStmt.get(res.request_id) as AssistanceRequest | null;
+    const request = rawReq ? this.hydrateRequest(rawReq) : undefined;
+
     return {
       ...res,
-      helper: helper
-        ? {
-            id: helper.id,
-            email: helper.email,
-            full_name: helper.full_name,
-            avatar_url: helper.avatar_url,
-            location: helper.location,
-            role: helper.role,
-            created_at: helper.created_at,
-            updated_at: helper.updated_at,
-          }
-        : undefined,
-      request: request ? this.hydrateRequest(request) : undefined,
+      helper: helper || undefined,
+      request,
     };
   }
 }
 
-export const db = new DatabaseStore();
+export const db = new PersistentDatabase();
